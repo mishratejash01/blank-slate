@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { checkIsAdmin } from '@/lib/admin-api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -8,7 +9,28 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
+import { Link } from 'react-router-dom';
 import { Eye, EyeOff, Shield, Globe, Building2, User, Mail } from 'lucide-react';
+
+const AdminLink = () => {
+  const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    if (user) checkIsAdmin(user.id).then(setIsAdmin);
+  }, [user]);
+  if (!isAdmin) return null;
+  return (
+    <Card className="border-border/50">
+      <CardContent className="py-4">
+        <Link to="/admin">
+          <Button variant="outline" className="w-full gap-2">
+            <Shield className="h-4 w-4" /> Admin Dashboard
+          </Button>
+        </Link>
+      </CardContent>
+    </Card>
+  );
+};
 
 const Settings = () => {
   const { user, profile, signOut } = useAuth();
@@ -137,6 +159,9 @@ const Settings = () => {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Admin Link */}
+      <AdminLink />
 
       {/* Sign Out */}
       <Card className="border-border/50">
