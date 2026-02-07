@@ -18,16 +18,72 @@ export interface PostWithAuthor {
   liked_by_me: boolean;
 }
 
-export interface Comment {
-  id: string;
-  post_id: string;
-  user_id: string;
-  comment_text: string;
-  created_at: string;
-  author_name: string;
+export interface UserProfileUpdate {
+  full_name?: string;
+  bio?: string;
+  hometown?: string;
+  department?: string;
 }
 
-// --- Fetch User Specific Posts (For Profile) ---
+export interface LeaderboardUser {
+  user_id: string;
+  full_name: string;
+  score: number;
+  avatar_seed: string;
+}
+
+// --- Profile Updates ---
+export async function updateUserProfile(userId: string, updates: UserProfileUpdate) {
+  const { error } = await supabase
+    .from('user_profiles')
+    .update(updates)
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
+// --- Leaderboard (Top Users by Likes) ---
+export async function fetchLeaderboard(): Promise<LeaderboardUser[]> {
+  // 1. Fetch posts to calculate scores (Total Likes)
+  const { data: posts, error } = await supabase
+    .from('posts')
+    .select('user_id, likes_count, is_anonymous')
+    .eq('is_anonymous', false) // Exclude anon posts from leaderboard
+    .limit(1000); // Limit for performance in MVP
+
+  if (error) throw error;
+  if (!posts) return [];
+
+  // 2. Aggregate Scores
+  const scores: Record<string, number> = {};
+  posts.forEach(post => {
+    scores[post.user_id] = (scores[post.user_id] || 0) + (post.likes_count || 0);
+  });
+
+  // 3. Sort and take Top 5
+  const topUserIds = Object.entries(scores)
+    .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
+    .slice(0, 5)
+    .map(([userId]) => userId);
+
+  if (topUserIds.length === 0) return [];
+
+  // 4. Fetch User Details
+  const { data: profiles } = await supabase
+    .from('user_profiles')
+    .select('user_id, full_name')
+    .in('user_id', topUserIds);
+
+  const nameMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
+
+  return topUserIds.map(userId => ({
+    user_id: userId,
+    full_name: nameMap.get(userId) || 'Unknown Student',
+    score: scores[userId],
+    avatar_seed: userId
+  }));
+}
+
+// --- Existing Functions ---
 export async function fetchUserPosts(userId: string): Promise<PostWithAuthor[]> {
   const { data: posts, error } = await supabase
     .from('posts')
@@ -38,7 +94,6 @@ export async function fetchUserPosts(userId: string): Promise<PostWithAuthor[]> 
   if (error) throw error;
   if (!posts || posts.length === 0) return [];
 
-  // For the user's own profile, we know the author is the user
   const { data: userProfile } = await supabase
     .from('user_profiles')
     .select('full_name')
@@ -69,7 +124,6 @@ export async function fetchUserPosts(userId: string): Promise<PostWithAuthor[]> 
     comments_count: post.comments_count,
     created_at: post.created_at,
     user_id: post.user_id,
-    // On your own profile, you see your name even if anonymous, but we can tag it
     author_name: post.is_anonymous ? `${authorName} (Anon)` : authorName,
     author_org: profile?.organization_domain || '',
     author_verified: profile?.is_verified || false,
