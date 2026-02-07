@@ -5,7 +5,7 @@ import ChatWindow from '@/components/chat/ChatWindow';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, ShieldOff } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 
@@ -37,6 +37,7 @@ const Chat = () => {
         matchId={activeChat.match_id}
         otherUserId={activeChat.other_user_id}
         otherName={activeChat.other_name}
+        otherBanned={activeChat.is_banned}
         onBack={() => { setActiveChat(null); loadMatches(); }}
       />
     );
@@ -84,13 +85,20 @@ const Chat = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm text-foreground">{m.other_name}</span>
+                  {m.is_banned && (
+                    <Badge variant="destructive" className="h-5 px-1.5 text-[10px] gap-0.5">
+                      <ShieldOff className="h-2.5 w-2.5" /> Banned
+                    </Badge>
+                  )}
                   {m.unread_count > 0 && (
                     <Badge className="h-5 min-w-[20px] px-1.5 text-[10px] bg-accent text-accent-foreground">
                       {m.unread_count}
                     </Badge>
                   )}
                 </div>
-                {m.last_message ? (
+                {m.is_banned ? (
+                  <p className="text-xs text-destructive italic">This user has been banned</p>
+                ) : m.last_message ? (
                   <p className="text-xs text-muted-foreground truncate">{m.last_message}</p>
                 ) : (
                   <p className="text-xs text-muted-foreground italic">No messages yet</p>

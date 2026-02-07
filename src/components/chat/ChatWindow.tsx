@@ -11,7 +11,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Flag, Send } from 'lucide-react';
+import { ArrowLeft, Flag, Send, ShieldOff } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import ChatDisclaimer from '@/components/chat/ChatDisclaimer';
@@ -21,10 +21,11 @@ interface Props {
   matchId: string;
   otherUserId: string;
   otherName: string;
+  otherBanned?: boolean;
   onBack: () => void;
 }
 
-const ChatWindow = ({ matchId, otherUserId, otherName, onBack }: Props) => {
+const ChatWindow = ({ matchId, otherUserId, otherName, otherBanned, onBack }: Props) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -138,6 +139,11 @@ const ChatWindow = ({ matchId, otherUserId, otherName, onBack }: Props) => {
           {initials}
         </div>
         <span className="font-semibold text-sm text-foreground flex-1">{otherName}</span>
+        {otherBanned && (
+          <span className="text-[10px] text-destructive font-medium flex items-center gap-1">
+            <ShieldOff className="h-3 w-3" /> Banned
+          </span>
+        )}
         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setShowReport(true)}>
           <Flag className="h-4 w-4" />
         </Button>
@@ -176,18 +182,24 @@ const ChatWindow = ({ matchId, otherUserId, otherName, onBack }: Props) => {
       </div>
 
       {/* Input */}
-      <div className="flex gap-2 pt-3 border-t border-border">
-        <Input
-          value={input}
-          onChange={(e) => { if (e.target.value.length <= 1000) setInput(e.target.value); }}
-          placeholder="Type a message..."
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-          disabled={showDisclaimer}
-        />
-        <Button size="icon" onClick={handleSend} disabled={!input.trim() || sending || showDisclaimer}>
-          <Send className="h-4 w-4" />
-        </Button>
-      </div>
+      {otherBanned ? (
+        <div className="pt-3 border-t border-border text-center">
+          <p className="text-xs text-destructive">This user has been banned. You can no longer send messages.</p>
+        </div>
+      ) : (
+        <div className="flex gap-2 pt-3 border-t border-border">
+          <Input
+            value={input}
+            onChange={(e) => { if (e.target.value.length <= 1000) setInput(e.target.value); }}
+            placeholder="Type a message..."
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            disabled={showDisclaimer}
+          />
+          <Button size="icon" onClick={handleSend} disabled={!input.trim() || sending || showDisclaimer}>
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

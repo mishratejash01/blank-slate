@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchAllReports, updateReportStatus, banUser } from '@/lib/admin-api';
+import { fetchAllReports, updateReportStatus, banUser, unbanUser } from '@/lib/admin-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertTriangle, Shield } from 'lucide-react';
+import { AlertTriangle, Shield, ShieldOff } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-accent/10 text-accent',
@@ -126,6 +126,21 @@ const AdminReports = () => {
                 </Button>
                 <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => setBanDialog(r)}>
                   <Shield className="h-3 w-3 mr-1" /> Ban User
+                </Button>
+              </div>
+            )}
+            {r.status === 'action_taken' && (
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={async () => {
+                  try {
+                    await unbanUser(r.reported_user_id);
+                    toast({ title: 'User unbanned' });
+                    load();
+                  } catch (e: any) {
+                    toast({ variant: 'destructive', title: 'Error', description: e.message });
+                  }
+                }}>
+                  <ShieldOff className="h-3 w-3" /> Unban User
                 </Button>
               </div>
             )}
