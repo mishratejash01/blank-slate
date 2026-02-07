@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { isWorkspaceEmail } from '@/lib/email-validation';
+import { toast } from '@/hooks/use-toast';
 
 interface Profile {
   id: string;
@@ -53,6 +55,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        const userEmail = session?.user?.email;
+        if (session && userEmail && !isWorkspaceEmail(userEmail)) {
+          await supabase.auth.signOut();
+          toast({
+            variant: 'destructive',
+            title: 'Access Denied',
+            description: 'Only organization/university emails are allowed. Public emails (Gmail, Yahoo, etc.) cannot be used.',
+          });
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
