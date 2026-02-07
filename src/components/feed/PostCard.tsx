@@ -4,7 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Heart, MessageCircle, CheckCircle, Globe, Building2, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Heart, MessageCircle, CheckCircle, Globe, Building2, Trash2, EyeOff, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +15,12 @@ interface Props {
   onRefresh: () => void;
 }
 
+const CATEGORY_STYLE: Record<string, { label: string; emoji: string; className: string }> = {
+  confession: { label: 'Confession', emoji: '🤫', className: 'bg-violet-500/15 text-violet-400 border-violet-500/30' },
+  crush: { label: 'Crush', emoji: '💘', className: 'bg-pink-500/15 text-pink-400 border-pink-500/30' },
+  spotted: { label: 'Spotted', emoji: '👀', className: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
+};
+
 const PostCard = ({ post, onRefresh }: Props) => {
   const { user } = useAuth();
   const [showComments, setShowComments] = useState(false);
@@ -22,12 +29,15 @@ const PostCard = ({ post, onRefresh }: Props) => {
   const [loadingComments, setLoadingComments] = useState(false);
   const [liking, setLiking] = useState(false);
 
-  const initials = post.author_name
+  const isAnon = post.is_anonymous;
+  const initials = isAnon ? '?' : post.author_name
     .split(' ')
     .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
+
+  const catStyle = CATEGORY_STYLE[post.category];
 
   const handleLike = async () => {
     if (!user || liking) return;
@@ -81,18 +91,30 @@ const PostCard = ({ post, onRefresh }: Props) => {
   };
 
   return (
-    <Card className="border-border/50">
+    <Card className={`border-border/50 ${catStyle ? 'border-l-2' : ''}`}
+      style={catStyle ? { borderLeftColor: post.category === 'crush' ? 'rgb(236 72 153 / 0.5)' : post.category === 'spotted' ? 'rgb(245 158 11 / 0.5)' : 'rgb(139 92 246 / 0.5)' } : undefined}
+    >
       <CardContent className="pt-4">
-        {/* Author */}
         <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
-            {initials}
+          {/* Avatar */}
+          <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold shrink-0 ${
+            isAnon ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'
+          }`}>
+            {isAnon ? <EyeOff className="h-4 w-4" /> : initials}
           </div>
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-semibold text-sm text-foreground">{post.author_name}</span>
-              {post.author_verified && <CheckCircle className="h-3.5 w-3.5 text-success" />}
-              <span className="text-xs text-muted-foreground">@{post.author_org}</span>
+              <span className={`font-semibold text-sm ${isAnon ? 'text-muted-foreground italic' : 'text-foreground'}`}>
+                {post.author_name}
+              </span>
+              {!isAnon && post.author_verified && <CheckCircle className="h-3.5 w-3.5 text-success" />}
+              {!isAnon && post.author_org && <span className="text-xs text-muted-foreground">@{post.author_org}</span>}
+              {catStyle && (
+                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${catStyle.className}`}>
+                  {catStyle.emoji} {catStyle.label}
+                </Badge>
+              )}
               <span className="text-xs text-muted-foreground">·</span>
               <span className="text-xs text-muted-foreground">
                 {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
