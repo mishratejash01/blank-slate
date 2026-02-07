@@ -6,35 +6,58 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
 import CreatePostComponent from '@/components/feed/CreatePost';
 import PostCard from '@/components/feed/PostCard';
-import { Globe, Building2 } from 'lucide-react';
+import EmptyState from '@/components/EmptyState';
+import { Globe, Building2, MessageSquare, RefreshCw, Loader2 } from 'lucide-react';
+
+const PAGE_SIZE = 20;
 
 const Feed = () => {
   const { user, profile } = useAuth();
   const [mode, setMode] = useState<'org' | 'global'>('global');
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const loadPosts = useCallback(async () => {
+  const loadPosts = useCallback(async (append = false) => {
     if (!user) return;
     try {
-      const data = await fetchPosts(mode, user.id);
-      setPosts(data);
+      setError(null);
+      const offset = append ? posts.length : 0;
+      const data = await fetchPosts(mode, user.id, PAGE_SIZE, offset);
+      if (append) {
+        setPosts((prev) => [...prev, ...data]);
+      } else {
+        setPosts(data);
+      }
+      setHasMore(data.length >= PAGE_SIZE);
     } catch (e: any) {
+      setError(e.message);
       toast({ variant: 'destructive', title: 'Error loading feed', description: e.message });
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [user, mode]);
+  }, [user, mode, posts.length]);
 
   useEffect(() => {
     setLoading(true);
+    setHasMore(true);
+    setPosts([]);
     loadPosts();
-  }, [loadPosts]);
+  }, [mode, user]);
+
+  const handleLoadMore = () => {
+    setLoadingMore(true);
+    loadPosts(true);
+  };
 
   const handlePost = async (content: string, visibility: 'org_only' | 'global') => {
     if (!user) return;
     try {
       await createPost(user.id, content, visibility);
+      setLoading(true);
       await loadPosts();
       toast({ title: 'Posted!' });
     } catch (e: any) {
@@ -72,16 +95,40 @@ const Feed = () => {
             <Skeleton key={i} className="h-32 w-full" />
           ))}
         </div>
-      ) : posts.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <p className="text-lg font-medium">No posts yet</p>
-          <p className="text-sm mt-1">Be the first to share something!</p>
+      ) : error ? (
+        <div className="text-center py-12 space-y-3">
+          <p className="text-sm text-destructive">{error}</p>
+          <Button variant="outline" size="sm" onClick={() => { setLoading(true); loadPosts(); }}>
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
+          </Button>
         </div>
+      ) : posts.length === 0 ? (
+        <EmptyState
+          icon={MessageSquare}
+          title="No posts yet"
+          description="Be the first to share something!"
+        />
       ) : (
         <div className="space-y-3">
           {posts.map((post) => (
-            <PostCard key={post.id} post={post} onRefresh={loadPosts} />
+            <PostCard key={post.id} post={post} onRefresh={() => loadPosts()} />
           ))}
+          {hasMore && (
+            <div className="text-center pt-2 pb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Loading...</>
+                ) : (
+                  'Load More'
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
