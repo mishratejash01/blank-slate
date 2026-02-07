@@ -1,14 +1,15 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Heart, LogOut, CheckCircle, Clock, MessageSquare, Flame } from 'lucide-react';
+import { Heart, LogOut, CheckCircle, Clock, MessageSquare, Flame, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import Feed from '@/pages/Feed';
 import Dating from '@/pages/Dating';
+import Chat from '@/pages/Chat';
 
 const Index = () => {
   const { profile, signOut } = useAuth();
-  const [tab, setTab] = useState<'feed' | 'dating'>('feed');
+  const [tab, setTab] = useState<'feed' | 'dating' | 'chat'>('feed');
 
   return (
     <div className="min-h-screen bg-background">
@@ -64,9 +65,19 @@ const Index = () => {
           >
             <Flame className="h-4 w-4" /> Dating
           </Button>
+          <Button
+            size="sm"
+            variant={tab === 'chat' ? 'default' : 'ghost'}
+            onClick={() => setTab('chat')}
+            className="flex-1 gap-1.5"
+          >
+            <MessageCircle className="h-4 w-4" /> Chat
+          </Button>
         </div>
 
-        {tab === 'feed' ? <Feed /> : <Dating />}
+        {tab === 'feed' && <Feed />}
+        {tab === 'dating' && <Dating />}
+        {tab === 'chat' && <Chat />}
       </main>
     </div>
   );
