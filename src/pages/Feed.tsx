@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPosts, createPost, PostWithAuthor } from '@/lib/feed-api';
+import { fetchPosts, createPost, PostWithAuthor, PostCategory } from '@/lib/feed-api';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import CreatePostComponent from '@/components/feed/CreatePost';
 import PostCard from '@/components/feed/PostCard';
@@ -11,9 +12,18 @@ import { Globe, Building2, MessageSquare, RefreshCw, Loader2 } from 'lucide-reac
 
 const PAGE_SIZE = 20;
 
+const CATEGORY_FILTERS: { value: PostCategory | 'all'; label: string; emoji: string }[] = [
+  { value: 'all', label: 'All', emoji: '📋' },
+  { value: 'general', label: 'General', emoji: '💬' },
+  { value: 'confession', label: 'Confessions', emoji: '🤫' },
+  { value: 'crush', label: 'Crush', emoji: '💘' },
+  { value: 'spotted', label: 'Spotted', emoji: '👀' },
+];
+
 const Feed = () => {
   const { user, profile } = useAuth();
   const [mode, setMode] = useState<'org' | 'global'>('global');
+  const [categoryFilter, setCategoryFilter] = useState<PostCategory | 'all'>('all');
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -53,10 +63,10 @@ const Feed = () => {
     loadPosts(true);
   };
 
-  const handlePost = async (content: string, visibility: 'org_only' | 'global') => {
+  const handlePost = async (content: string, visibility: 'org_only' | 'global', isAnonymous: boolean, category: PostCategory) => {
     if (!user) return;
     try {
-      await createPost(user.id, content, visibility);
+      await createPost(user.id, content, visibility, isAnonymous, category);
       setLoading(true);
       await loadPosts();
       toast({ title: 'Posted!' });
@@ -64,6 +74,10 @@ const Feed = () => {
       toast({ variant: 'destructive', title: 'Error', description: e.message });
     }
   };
+
+  const filteredPosts = categoryFilter === 'all'
+    ? posts
+    : posts.filter((p) => p.category === categoryFilter);
 
   return (
     <div className="space-y-4">
@@ -89,6 +103,26 @@ const Feed = () => {
 
       <CreatePostComponent onPost={handlePost} />
 
+      {/* Category Filter */}
+      <div className="flex flex-wrap gap-1.5">
+        {CATEGORY_FILTERS.map((cat) => (
+          <Badge
+            key={cat.value}
+            variant={categoryFilter === cat.value ? 'default' : 'outline'}
+            className={`cursor-pointer text-xs transition-colors ${
+              categoryFilter === cat.value
+                ? cat.value === 'crush' ? 'bg-pink-500/90 hover:bg-pink-500' :
+                  cat.value === 'spotted' ? 'bg-amber-500/90 hover:bg-amber-500' :
+                  cat.value === 'confession' ? 'bg-violet-500/90 hover:bg-violet-500' : ''
+                : 'hover:bg-secondary'
+            }`}
+            onClick={() => setCategoryFilter(cat.value)}
+          >
+            {cat.emoji} {cat.label}
+          </Badge>
+        ))}
+      </div>
+
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
@@ -102,18 +136,18 @@ const Feed = () => {
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
           </Button>
         </div>
-      ) : posts.length === 0 ? (
+      ) : filteredPosts.length === 0 ? (
         <EmptyState
           icon={MessageSquare}
-          title="No posts yet"
+          title={categoryFilter !== 'all' ? `No ${categoryFilter} posts yet` : 'No posts yet'}
           description="Be the first to share something!"
         />
       ) : (
         <div className="space-y-3">
-          {posts.map((post) => (
+          {filteredPosts.map((post) => (
             <PostCard key={post.id} post={post} onRefresh={() => loadPosts()} />
           ))}
-          {hasMore && (
+          {hasMore && categoryFilter === 'all' && (
             <div className="text-center pt-2 pb-4">
               <Button
                 variant="outline"

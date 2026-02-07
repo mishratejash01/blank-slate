@@ -269,28 +269,34 @@ export type Database = {
       }
       posts: {
         Row: {
+          category: string
           comments_count: number
           content: string
           created_at: string
           id: string
+          is_anonymous: boolean
           likes_count: number
           user_id: string
           visibility: string
         }
         Insert: {
+          category?: string
           comments_count?: number
           content: string
           created_at?: string
           id?: string
+          is_anonymous?: boolean
           likes_count?: number
           user_id: string
           visibility: string
         }
         Update: {
+          category?: string
           comments_count?: number
           content?: string
           created_at?: string
           id?: string
+          is_anonymous?: boolean
           likes_count?: number
           user_id?: string
           visibility?: string

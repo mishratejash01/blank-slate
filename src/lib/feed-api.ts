@@ -1,9 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
 
+export type PostCategory = 'general' | 'confession' | 'crush' | 'spotted';
+
 export interface PostWithAuthor {
   id: string;
   content: string;
   visibility: string;
+  is_anonymous: boolean;
+  category: PostCategory;
   likes_count: number;
   comments_count: number;
   created_at: string;
@@ -56,27 +60,38 @@ export async function fetchPosts(mode: 'org' | 'global', userId: string, limit =
 
   return posts.map((post) => {
     const profile = profileMap.get(post.user_id);
+    const isAnon = post.is_anonymous;
     return {
       id: post.id,
       content: post.content,
       visibility: post.visibility,
+      is_anonymous: isAnon,
+      category: (post.category || 'general') as PostCategory,
       likes_count: post.likes_count,
       comments_count: post.comments_count,
       created_at: post.created_at,
       user_id: post.user_id,
-      author_name: nameMap.get(post.user_id) || 'Unknown',
-      author_org: profile?.organization_domain || '',
-      author_verified: profile?.is_verified || false,
+      author_name: isAnon ? 'Anonymous Student' : (nameMap.get(post.user_id) || 'Unknown'),
+      author_org: isAnon ? '' : (profile?.organization_domain || ''),
+      author_verified: isAnon ? false : (profile?.is_verified || false),
       liked_by_me: likedSet.has(post.id),
     };
   });
 }
 
-export async function createPost(userId: string, content: string, visibility: 'org_only' | 'global') {
+export async function createPost(
+  userId: string,
+  content: string,
+  visibility: 'org_only' | 'global',
+  is_anonymous = false,
+  category: PostCategory = 'general'
+) {
   const { error } = await supabase.from('posts').insert({
     user_id: userId,
     content: content.trim(),
     visibility,
+    is_anonymous,
+    category,
   });
   if (error) throw error;
 }
