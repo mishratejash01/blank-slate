@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchPosts, createPost, toggleLike, PostWithAuthor, PostCategory } from '@/lib/feed-api';
+import { fetchPosts, createPost, toggleLike, PostWithAuthor, PostCategory, fetchLeaderboard, LeaderboardUser } from '@/lib/feed-api';
 import Dating from '@/pages/Dating';
 import Chat from '@/pages/Chat';
-import Profile from '@/pages/Profile'; // New import
+import Profile from '@/pages/Profile';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, MessageCircle, Heart, Ghost, Globe, Building2, Flame, Search, User } from 'lucide-react';
+import { Loader2, MessageCircle, Heart, Ghost, Globe, Building2, Flame, Search, User, Trophy } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,6 +72,7 @@ const Index = () => {
   const [mode, setMode] = useState<'global' | 'org'>('global');
   const [filterCategory, setFilterCategory] = useState<PostCategory | 'all'>('all');
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(false);
   
   // Composer State
@@ -93,6 +94,8 @@ const Index = () => {
         .then(({ data }) => {
           if (data) setUserProfile(data);
         });
+        
+      fetchLeaderboard().then(setLeaderboard);
     }
   }, [user]);
 
@@ -324,7 +327,7 @@ const Index = () => {
                             {post.content}
                           </div>
                           
-                          <div className="flex justify-between max-w-[200px] text-[#71767b] text-[13px]">
+                          <div className="flex justify-start gap-8 text-[#71767b] text-[13px]">
                             <div className="flex items-center gap-2 group cursor-pointer hover:text-[#1d9bf0]">
                               <div className="p-2 rounded-full group-hover:bg-[#1d9bf0]/10 transition-colors">
                                 <MessageCircle className="w-[18px] h-[18px]" />
@@ -367,18 +370,11 @@ const Index = () => {
 
           <div className="bg-[#16181c] border border-[#2f3336] rounded-2xl mb-4 overflow-hidden">
              <div className="py-3 px-4 text-xl font-extrabold text-[#e7e9ea] mb-2">Explore Topics</div>
-             <div 
-                className={`py-3 px-4 hover:bg-[#eff3f4]/5 cursor-pointer transition-colors ${filterCategory === 'all' ? 'bg-[#eff3f4]/5 border-l-2 border-[#1d9bf0]' : ''}`}
-                onClick={() => setFilterCategory('all')}
-             >
-                <div className="text-[13px] text-[#71767b]">Everywhere</div>
-                <div className="font-bold text-[15px]">All Posts</div>
-             </div>
              {CATEGORIES.map((cat) => (
                <div 
                   key={cat.value}
                   className={`py-3 px-4 hover:bg-[#eff3f4]/5 cursor-pointer transition-colors ${filterCategory === cat.value ? 'bg-[#eff3f4]/5 border-l-2 border-[#1d9bf0]' : ''}`}
-                  onClick={() => setFilterCategory(cat.value)}
+                  onClick={() => setFilterCategory(cat.value === filterCategory ? 'all' : cat.value)}
                >
                   <div className="text-[13px] text-[#71767b]">Trending in {orgDomain}</div>
                   <div className="font-bold text-[15px] flex items-center gap-2">
@@ -386,6 +382,32 @@ const Index = () => {
                   </div>
                </div>
              ))}
+          </div>
+
+          {/* LEADERBOARD SECTION */}
+          <div className="bg-[#16181c] border border-[#2f3336] rounded-2xl mb-4 overflow-hidden">
+             <div className="py-3 px-4 text-xl font-extrabold text-[#e7e9ea] flex items-center gap-2">
+               <Trophy className="w-5 h-5 text-yellow-500" />
+               Campus Leaderboard
+             </div>
+             {leaderboard.length === 0 ? (
+               <div className="p-4 text-center text-[#71767b] text-sm">
+                 No verified top students yet.
+               </div>
+             ) : (
+               leaderboard.map((user, index) => (
+                 <div key={user.user_id} className="py-3 px-4 hover:bg-[#eff3f4]/5 cursor-pointer transition-colors flex items-center gap-3">
+                    <div className="font-bold text-[#71767b] w-4">{index + 1}</div>
+                    <div className="w-8 h-8 rounded-full bg-[#333] flex items-center justify-center text-xs font-bold overflow-hidden">
+                       <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatar_seed}`} alt="avatar" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                       <div className="font-bold text-[14px] truncate text-[#e7e9ea]">{user.full_name}</div>
+                       <div className="text-xs text-[#71767b]">{user.score} likes</div>
+                    </div>
+                 </div>
+               ))
+             )}
           </div>
         </aside>
 
