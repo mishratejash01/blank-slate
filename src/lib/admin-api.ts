@@ -103,6 +103,35 @@ export async function banUser(
   if (error) throw error;
 }
 
+export async function unbanUser(userId: string) {
+  const { error } = await supabase
+    .from('user_bans')
+    .delete()
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
+export async function fetchActiveBans() {
+  const { data, error } = await supabase
+    .from('user_bans')
+    .select('*')
+    .order('banned_at', { ascending: false });
+  if (error) throw error;
+
+  const userIds = [...new Set((data || []).map((b) => b.user_id))];
+  const { data: userProfiles } = await supabase
+    .from('user_profiles')
+    .select('user_id, full_name')
+    .in('user_id', userIds);
+
+  const nameMap = new Map((userProfiles || []).map((p) => [p.user_id, p.full_name]));
+
+  return (data || []).map((b) => ({
+    ...b,
+    user_name: nameMap.get(b.user_id) || 'Unknown',
+  }));
+}
+
 export async function fetchAllPosts() {
   const { data: posts } = await supabase
     .from('posts')

@@ -7,6 +7,7 @@ export interface ChatMatch {
   last_message?: string;
   last_message_at?: string;
   unread_count: number;
+  is_banned?: boolean;
 }
 
 export interface ChatMessage {
@@ -16,6 +17,20 @@ export interface ChatMessage {
   message_text: string;
   is_read: boolean;
   created_at: string;
+}
+
+export async function checkUserBanned(userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('user_bans')
+    .select('id, is_permanent, expires_at')
+    .eq('user_id', userId)
+    .order('banned_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return false;
+  if (data.is_permanent) return true;
+  if (data.expires_at && new Date(data.expires_at) > new Date()) return true;
+  return false;
 }
 
 export async function fetchChatList(userId: string): Promise<ChatMatch[]> {
@@ -31,7 +46,7 @@ export async function fetchChatList(userId: string): Promise<ChatMatch[]> {
   const otherIds = matches.map((m) => (m.user1_id === userId ? m.user2_id : m.user1_id));
   const matchIds = matches.map((m) => m.id);
 
-  const [{ data: userProfiles }, { data: messages }, { data: unreadCounts }] = await Promise.all([
+  const [{ data: userProfiles }, { data: messages }, { data: unreadCounts }, { data: bans }] = await Promise.all([
     supabase.from('user_profiles').select('user_id, full_name').in('user_id', otherIds),
     supabase
       .from('chat_messages')
@@ -44,9 +59,21 @@ export async function fetchChatList(userId: string): Promise<ChatMatch[]> {
       .in('match_id', matchIds)
       .eq('is_read', false)
       .neq('sender_id', userId),
+    supabase
+      .from('user_bans')
+      .select('user_id, is_permanent, expires_at')
+      .in('user_id', otherIds),
   ]);
 
   const nameMap = new Map((userProfiles || []).map((p) => [p.user_id, p.full_name]));
+
+  // Build banned set
+  const bannedSet = new Set<string>();
+  (bans || []).forEach((b) => {
+    if (b.is_permanent || (b.expires_at && new Date(b.expires_at) > new Date())) {
+      bannedSet.add(b.user_id);
+    }
+  });
 
   // Get last message per match
   const lastMsgMap = new Map<string, { text: string; at: string }>();
@@ -72,6 +99,7 @@ export async function fetchChatList(userId: string): Promise<ChatMatch[]> {
       last_message: lastMsg?.text,
       last_message_at: lastMsg?.at,
       unread_count: unreadMap.get(m.id) || 0,
+      is_banned: bannedSet.has(otherId),
     };
   }).sort((a, b) => {
     const aTime = a.last_message_at || '';
