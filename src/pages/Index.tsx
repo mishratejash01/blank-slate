@@ -1,15 +1,16 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Heart, LogOut, CheckCircle, Clock, MessageSquare, Flame, MessageCircle } from 'lucide-react';
+import { Heart, LogOut, CheckCircle, Clock, MessageSquare, Flame, MessageCircle, Settings as SettingsIcon } from 'lucide-react';
 import { useState } from 'react';
 import Feed from '@/pages/Feed';
 import Dating from '@/pages/Dating';
 import Chat from '@/pages/Chat';
+import Settings from '@/pages/Settings';
 
 const Index = () => {
   const { profile, signOut } = useAuth();
-  const [tab, setTab] = useState<'feed' | 'dating' | 'chat'>('feed');
+  const [tab, setTab] = useState<'feed' | 'dating' | 'chat' | 'settings'>('feed');
 
   return (
     <div className="min-h-screen bg-background">
@@ -30,8 +31,8 @@ const Index = () => {
             )}
             <span className="hidden sm:inline">{profile?.organization_domain}</span>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={signOut}>
-            <LogOut className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setTab('settings')}>
+            <SettingsIcon className="h-4 w-4" />
           </Button>
         </div>
       </header>
@@ -78,6 +79,7 @@ const Index = () => {
         {tab === 'feed' && <Feed />}
         {tab === 'dating' && <Dating />}
         {tab === 'chat' && <Chat />}
+        {tab === 'settings' && <Settings />}
       </main>
     </div>
   );
