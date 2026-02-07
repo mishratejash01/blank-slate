@@ -23,13 +23,13 @@ export interface Comment {
   author_name: string;
 }
 
-export async function fetchPosts(mode: 'org' | 'global', userId: string): Promise<PostWithAuthor[]> {
+export async function fetchPosts(mode: 'org' | 'global', userId: string, limit = 20, offset = 0): Promise<PostWithAuthor[]> {
   // Fetch posts - RLS handles visibility
   let query = supabase
     .from('posts')
     .select('*')
     .order('created_at', { ascending: false })
-    .limit(50);
+    .range(offset, offset + limit - 1);
 
   if (mode === 'global') {
     query = query.eq('visibility', 'global');
