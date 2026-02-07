@@ -14,7 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          has_completed_onboarding: boolean
+          id: string
+          is_verified: boolean
+          organization_domain: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          has_completed_onboarding?: boolean
+          id: string
+          is_verified?: boolean
+          organization_domain: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          has_completed_onboarding?: boolean
+          id?: string
+          is_verified?: boolean
+          organization_domain?: string
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          academic_year: string
+          bio: string
+          college_id: string
+          created_at: string
+          date_of_birth: string
+          department: string
+          full_name: string
+          gender: string
+          graduation_year: number
+          hometown: string
+          id: string
+          interests: string[]
+          languages: string[]
+          looking_for: string
+          minor: string | null
+          phone_number: string
+          relationship_status: string
+          start_year: number
+          updated_at: string
+          user_id: string
+          viewability_global: boolean
+        }
+        Insert: {
+          academic_year: string
+          bio: string
+          college_id: string
+          created_at?: string
+          date_of_birth: string
+          department: string
+          full_name: string
+          gender: string
+          graduation_year: number
+          hometown: string
+          id?: string
+          interests?: string[]
+          languages?: string[]
+          looking_for: string
+          minor?: string | null
+          phone_number: string
+          relationship_status: string
+          start_year: number
+          updated_at?: string
+          user_id: string
+          viewability_global?: boolean
+        }
+        Update: {
+          academic_year?: string
+          bio?: string
+          college_id?: string
+          created_at?: string
+          date_of_birth?: string
+          department?: string
+          full_name?: string
+          gender?: string
+          graduation_year?: number
+          hometown?: string
+          id?: string
+          interests?: string[]
+          languages?: string[]
+          looking_for?: string
+          minor?: string | null
+          phone_number?: string
+          relationship_status?: string
+          start_year?: number
+          updated_at?: string
+          user_id?: string
+          viewability_global?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
