@@ -1,10 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchUserPosts, PostWithAuthor, toggleLike, PostCategory } from '@/lib/feed-api';
-import { ArrowLeft, Calendar, MapPin, MessageCircle, Heart, Shield } from 'lucide-react';
+import { fetchUserPosts, PostWithAuthor, toggleLike, PostCategory, updateUserProfile } from '@/lib/feed-api';
+import { ArrowLeft, Calendar, MapPin, MessageCircle, Heart, Shield, GraduationCap, X } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from '@/hooks/use-toast';
 
 const CATEGORIES: { value: PostCategory; emoji: string }[] = [
   { value: 'general', emoji: '📢' },
@@ -35,31 +48,43 @@ const Profile = ({ onBack }: ProfileProps) => {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Edit State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ full_name: '', bio: '', hometown: '', department: '' });
+  const [saving, setSaving] = useState(false);
+
+  const loadData = async () => {
+    if (!user) return;
+    setLoading(true);
+    // Fetch Profile Details
+    const { data: profileData } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (profileData) {
+      setUserProfile(profileData);
+      setEditForm({
+        full_name: profileData.full_name || '',
+        bio: profileData.bio || '',
+        hometown: profileData.hometown || '',
+        department: profileData.department || ''
+      });
+    }
+
+    // Fetch User Posts
+    try {
+      const userPosts = await fetchUserPosts(user.id);
+      setPosts(userPosts);
+    } catch (error) {
+      console.error("Error fetching posts", error);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    if (!user) return;
-
-    const loadData = async () => {
-      setLoading(true);
-      // Fetch Profile Details
-      const { data: profileData } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
-      setUserProfile(profileData);
-
-      // Fetch User Posts
-      try {
-        const userPosts = await fetchUserPosts(user.id);
-        setPosts(userPosts);
-      } catch (error) {
-        console.error("Error fetching posts", error);
-      }
-      setLoading(false);
-    };
-
     loadData();
   }, [user]);
 
@@ -76,6 +101,21 @@ const Profile = ({ onBack }: ProfileProps) => {
       await toggleLike(post.id, user.id, post.liked_by_me);
     } catch (e) {
       // revert silently
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      await updateUserProfile(user.id, editForm);
+      toast({ title: "Profile updated!" });
+      setIsEditing(false);
+      loadData(); // Refresh data
+    } catch (error) {
+      toast({ variant: "destructive", title: "Failed to update profile" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -104,7 +144,6 @@ const Profile = ({ onBack }: ProfileProps) => {
 
       {/* Banner */}
       <div className="h-[200px] bg-gradient-to-r from-[#2b303b] to-[#aeb6bf] relative flex items-center justify-end overflow-hidden">
-        {/* Placeholder Graphic */}
          <svg width="200" height="200" viewBox="0 0 100 100" className="mr-12 opacity-50">
             <ellipse cx="50" cy="45" rx="35" ry="40" fill="#d1d1d1" />
             <ellipse cx="35" cy="50" rx="10" ry="15" fill="black" transform="rotate(-20 35 50)" />
@@ -123,11 +162,75 @@ const Profile = ({ onBack }: ProfileProps) => {
            )}
         </div>
 
-        {/* Edit Button */}
+        {/* Edit Button with Dialog */}
         <div className="flex justify-end pt-3 mb-10">
-          <button className="border border-[#536471] text-white px-4 py-1.5 rounded-full font-bold hover:bg-[#eff3f4]/10 transition-colors">
-            Edit profile
-          </button>
+          <Dialog open={isEditing} onOpenChange={setIsEditing}>
+            <DialogTrigger asChild>
+              <button className="border border-[#536471] text-white px-4 py-1.5 rounded-full font-bold hover:bg-[#eff3f4]/10 transition-colors">
+                Edit profile
+              </button>
+            </DialogTrigger>
+            <DialogContent className="bg-black border-[#2f3336] text-white sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Edit Profile</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right text-[#71767b]">
+                    Name
+                  </Label>
+                  <Input
+                    id="name"
+                    value={editForm.full_name}
+                    onChange={(e) => setEditForm({...editForm, full_name: e.target.value})}
+                    className="col-span-3 bg-transparent border-[#2f3336] text-white"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="bio" className="text-right text-[#71767b]">
+                    Bio
+                  </Label>
+                  <Textarea
+                    id="bio"
+                    value={editForm.bio}
+                    onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
+                    className="col-span-3 bg-transparent border-[#2f3336] text-white"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="location" className="text-right text-[#71767b]">
+                    Location
+                  </Label>
+                  <Input
+                    id="location"
+                    value={editForm.hometown}
+                    onChange={(e) => setEditForm({...editForm, hometown: e.target.value})}
+                    className="col-span-3 bg-transparent border-[#2f3336] text-white"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="dept" className="text-right text-[#71767b]">
+                    Dept
+                  </Label>
+                  <Input
+                    id="dept"
+                    value={editForm.department}
+                    onChange={(e) => setEditForm({...editForm, department: e.target.value})}
+                    className="col-span-3 bg-transparent border-[#2f3336] text-white"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button 
+                   onClick={handleSaveProfile} 
+                   disabled={saving}
+                   className="bg-[#eff3f4] text-black hover:bg-[#d7dbdc] rounded-full font-bold"
+                >
+                  {saving ? 'Saving...' : 'Save'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Bio & Details */}
@@ -153,6 +256,12 @@ const Profile = ({ onBack }: ProfileProps) => {
                 <span>{userProfile.hometown}</span>
               </div>
             )}
+            {userProfile?.department && (
+              <div className="flex items-center gap-1">
+                <GraduationCap className="w-[18px] h-[18px]" />
+                <span>{userProfile.department}</span>
+              </div>
+            )}
             <div className="flex items-center gap-1">
               <Calendar className="w-[18px] h-[18px]" />
               <span>Joined {joinDate}</span>
@@ -164,17 +273,12 @@ const Profile = ({ onBack }: ProfileProps) => {
                </div>
             )}
           </div>
-
-          <div className="flex gap-5 mt-3 text-[14px]">
-            <span className="hover:underline cursor-pointer"><b className="text-[#e7e9ea]">108</b> <span className="text-[#71767b]">Following</span></span>
-            <span className="hover:underline cursor-pointer"><b className="text-[#e7e9ea]">153</b> <span className="text-[#71767b]">Followers</span></span>
-          </div>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex border-b border-[#2f3336] mt-3 overflow-x-auto no-scrollbar">
-        {['Posts', 'Replies', 'Highlights', 'Articles', 'Media', 'Likes'].map((tab, i) => (
+        {['Posts', 'Replies', 'Likes'].map((tab, i) => (
           <div 
             key={tab}
             className={`flex-1 min-w-fit px-4 py-4 text-center font-bold text-[15px] cursor-pointer hover:bg-[#eff3f4]/10 transition-colors relative ${i === 0 ? 'text-[#e7e9ea]' : 'text-[#71767b]'}`}
@@ -213,8 +317,8 @@ const Profile = ({ onBack }: ProfileProps) => {
                   {post.content}
                 </div>
                 
-                {/* Actions (Impressions and Repost removed as requested) */}
-                <div className="flex justify-between max-w-[200px] text-[#71767b] text-[13px]">
+                {/* Actions: Likes Only as per request */}
+                <div className="flex justify-start gap-8 text-[#71767b] text-[13px]">
                   <div className="flex items-center gap-2 group cursor-pointer hover:text-[#1d9bf0]">
                     <div className="p-2 rounded-full group-hover:bg-[#1d9bf0]/10 transition-colors">
                       <MessageCircle className="w-[18px] h-[18px]" />
