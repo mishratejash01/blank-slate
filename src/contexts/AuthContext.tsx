@@ -39,7 +39,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const checkBanStatus = async (userId: string): Promise<boolean> => {
+    const { data } = await supabase
+      .from('user_bans')
+      .select('id, is_permanent, expires_at')
+      .eq('user_id', userId)
+      .order('banned_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!data) return false;
+    if (data.is_permanent) return true;
+    if (data.expires_at && new Date(data.expires_at) > new Date()) return true;
+    return false;
+  };
+
   const fetchProfile = async (userId: string) => {
+    // Check if user is banned
+    const isBanned = await checkBanStatus(userId);
+    if (isBanned) {
+      await supabase.auth.signOut();
+      toast({
+        variant: 'destructive',
+        title: 'Account Suspended',
+        description: 'Your account has been suspended. Contact support if you believe this is an error.',
+      });
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
     const { data } = await supabase
       .from('profiles')
       .select('*')
