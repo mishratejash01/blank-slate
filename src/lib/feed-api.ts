@@ -27,8 +27,57 @@ export interface Comment {
   author_name: string;
 }
 
+// --- Fetch User Specific Posts (For Profile) ---
+export async function fetchUserPosts(userId: string): Promise<PostWithAuthor[]> {
+  const { data: posts, error } = await supabase
+    .from('posts')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  if (!posts || posts.length === 0) return [];
+
+  // For the user's own profile, we know the author is the user
+  const { data: userProfile } = await supabase
+    .from('user_profiles')
+    .select('full_name')
+    .eq('user_id', userId)
+    .single();
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('organization_domain, is_verified')
+    .eq('id', userId)
+    .single();
+
+  const { data: myLikes } = await supabase
+    .from('post_likes')
+    .select('post_id')
+    .eq('user_id', userId);
+
+  const likedSet = new Set((myLikes || []).map((l) => l.post_id));
+  const authorName = userProfile?.full_name || 'Unknown';
+
+  return posts.map((post) => ({
+    id: post.id,
+    content: post.content,
+    visibility: post.visibility,
+    is_anonymous: post.is_anonymous,
+    category: (post.category || 'general') as PostCategory,
+    likes_count: post.likes_count,
+    comments_count: post.comments_count,
+    created_at: post.created_at,
+    user_id: post.user_id,
+    // On your own profile, you see your name even if anonymous, but we can tag it
+    author_name: post.is_anonymous ? `${authorName} (Anon)` : authorName,
+    author_org: profile?.organization_domain || '',
+    author_verified: profile?.is_verified || false,
+    liked_by_me: likedSet.has(post.id),
+  }));
+}
+
 export async function fetchPosts(mode: 'org' | 'global', userId: string, limit = 20, offset = 0): Promise<PostWithAuthor[]> {
-  // Fetch posts - RLS handles visibility
   let query = supabase
     .from('posts')
     .select('*')
@@ -38,16 +87,13 @@ export async function fetchPosts(mode: 'org' | 'global', userId: string, limit =
   if (mode === 'global') {
     query = query.eq('visibility', 'global');
   }
-  // For org mode, RLS handles filtering - we get both org_only and global from same org
 
   const { data: posts, error } = await query;
   if (error) throw error;
   if (!posts || posts.length === 0) return [];
 
-  // Get unique user IDs
   const userIds = [...new Set(posts.map((p) => p.user_id))];
 
-  // Fetch profiles and user_profiles for authors
   const [{ data: profiles }, { data: userProfiles }, { data: myLikes }] = await Promise.all([
     supabase.from('profiles').select('id, organization_domain, is_verified').in('id', userIds),
     supabase.from('user_profiles').select('user_id, full_name').in('user_id', userIds),
@@ -104,35 +150,4 @@ export async function toggleLike(postId: string, userId: string, isLiked: boolea
     const { error } = await supabase.from('post_likes').insert({ post_id: postId, user_id: userId });
     if (error) throw error;
   }
-}
-
-export async function fetchComments(postId: string): Promise<Comment[]> {
-  const { data: comments, error } = await supabase
-    .from('post_comments')
-    .select('*')
-    .eq('post_id', postId)
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-  if (!comments || comments.length === 0) return [];
-
-  const userIds = [...new Set(comments.map((c) => c.user_id))];
-  const { data: userProfiles } = await supabase
-    .from('user_profiles')
-    .select('user_id, full_name')
-    .in('user_id', userIds);
-  const nameMap = new Map((userProfiles || []).map((p) => [p.user_id, p.full_name]));
-
-  return comments.map((c) => ({
-    ...c,
-    author_name: nameMap.get(c.user_id) || 'Unknown',
-  }));
-}
-
-export async function addComment(postId: string, userId: string, text: string) {
-  const { error } = await supabase.from('post_comments').insert({
-    post_id: postId,
-    user_id: userId,
-    comment_text: text.trim(),
-  });
-  if (error) throw error;
 }
