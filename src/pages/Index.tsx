@@ -4,9 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchPosts, createPost, toggleLike, PostWithAuthor, PostCategory } from '@/lib/feed-api';
 import Dating from '@/pages/Dating';
 import Chat from '@/pages/Chat';
-import Settings from '@/pages/Settings';
+import Profile from '@/pages/Profile'; // New import
 import { toast } from '@/hooks/use-toast';
-import { Loader2, MessageCircle, Heart, Ghost, Globe, Building2, Flame, Search } from 'lucide-react';
+import { Loader2, MessageCircle, Heart, Ghost, Globe, Building2, Flame, Search, User } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,10 +16,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import UserSearch from '@/components/search/UserSearch';
-import LeaderboardBox from '@/components/leaderboard/LeaderboardBox';
-import UserProfileCard from '@/components/profile/UserProfileCard';
-import { useActivityTracker } from '@/hooks/useActivityTracker';
 
 // --- Icons & UI Components ---
 
@@ -70,10 +66,7 @@ const Index = () => {
   const { user, profile: authProfile } = useAuth();
   
   // Navigation State
-  const [tab, setTab] = useState<'feed' | 'dating' | 'chat' | 'settings'>('feed');
-  
-  // Activity Tracker
-  useActivityTracker(user?.id);
+  const [tab, setTab] = useState<'feed' | 'dating' | 'chat' | 'profile'>('feed');
   
   // Feed State
   const [mode, setMode] = useState<'global' | 'org'>('global');
@@ -90,7 +83,6 @@ const Index = () => {
   // User Profile
   const [userProfile, setUserProfile] = useState<{ full_name: string } | null>(null);
 
-  // 1. Fetch User Data
   useEffect(() => {
     if (user) {
       supabase
@@ -104,12 +96,10 @@ const Index = () => {
     }
   }, [user]);
 
-  // 2. Fetch Posts
   const loadPosts = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      // In a real app, implement pagination. Limit 50 for now.
       const data = await fetchPosts(mode, user.id, 50, 0);
       setPosts(data);
     } catch (error) {
@@ -121,10 +111,9 @@ const Index = () => {
   }, [user, mode]);
 
   useEffect(() => {
-    loadPosts();
-  }, [loadPosts]);
+    if (tab === 'feed') loadPosts();
+  }, [loadPosts, tab]);
 
-  // 3. Handle Create Post
   const handlePost = async () => {
     if (!content.trim() || !user) return;
     setIsPosting(true);
@@ -143,10 +132,8 @@ const Index = () => {
     }
   };
 
-  // 4. Handle Like
   const handleLike = async (post: PostWithAuthor) => {
     if (!user) return;
-    // Optimistic UI Update
     setPosts(current => 
       current.map(p => 
         p.id === post.id 
@@ -157,16 +144,14 @@ const Index = () => {
     try {
       await toggleLike(post.id, user.id, post.liked_by_me);
     } catch (error) {
-      loadPosts(); // Revert on error
+      loadPosts();
     }
   };
 
-  // Derived Data
   const displayName = userProfile?.full_name || 'Student';
   const handle = `@${displayName.replace(/\s+/g, '').toLowerCase()}`;
   const orgDomain = authProfile?.organization_domain || 'Organization';
 
-  // Filter posts client-side for category (since API fetches all for efficiency in this simplified version)
   const displayedPosts = filterCategory === 'all' 
     ? posts 
     : posts.filter(p => p.category === filterCategory);
@@ -175,7 +160,7 @@ const Index = () => {
     <div className="flex justify-center min-h-screen bg-black text-[#e7e9ea] font-sans selection:bg-[#1d9bf0] selection:text-white">
       <div className="flex w-full max-w-[1250px] min-h-screen">
         
-        {/* --- LEFT SIDEBAR (NAVIGATION) --- */}
+        {/* --- LEFT SIDEBAR --- */}
         <nav className="w-[80px] xl:w-[275px] px-2 flex flex-col border-r border-[#2f3336] h-screen sticky top-0 hidden md:flex">
           <div className="p-3 w-fit hover:bg-[#181818] rounded-full cursor-pointer transition-colors mb-2 xl:ml-0 mx-auto">
             <XLogo />
@@ -186,7 +171,7 @@ const Index = () => {
               { id: 'feed', icon: <Globe />, label: 'Home' },
               { id: 'dating', icon: <Flame />, label: 'Explore' },
               { id: 'chat', icon: <MessageCircle />, label: 'Chat' },
-              { id: 'settings', icon: <Building2 />, label: 'Profile' },
+              { id: 'profile', icon: <User />, label: 'Profile' },
             ].map((item) => (
               <button 
                 key={item.id}
@@ -207,7 +192,10 @@ const Index = () => {
             <span className="xl:hidden">🖋️</span>
           </button>
 
-          <div className="mt-auto mb-6 flex items-center p-3 rounded-full cursor-pointer hover:bg-[#181818] transition-colors xl:ml-0 mx-auto w-fit xl:w-full">
+          <div 
+            onClick={() => setTab('profile')}
+            className="mt-auto mb-6 flex items-center p-3 rounded-full cursor-pointer hover:bg-[#181818] transition-colors xl:ml-0 mx-auto w-fit xl:w-full"
+          >
             <div className="w-10 h-10 rounded-full bg-[#333] flex items-center justify-center font-bold text-lg xl:mr-3 overflow-hidden">
                {authProfile?.is_verified ? <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`} alt="avatar" /> : getInitials(displayName)}
             </div>
@@ -254,7 +242,6 @@ const Index = () => {
                     onChange={(e) => setContent(e.target.value)}
                   />
                   
-                  {/* Composer Tools */}
                   <div className="flex justify-between items-center mt-3 pt-3 border-t border-[#2f3336]">
                     <div className="flex items-center gap-4">
                        {/* Category Selector */}
@@ -310,26 +297,15 @@ const Index = () => {
                   ) : (
                     displayedPosts.map((post) => (
                       <div key={post.id} className="p-4 border-b border-[#2f3336] flex hover:bg-white/[0.03] cursor-pointer transition-colors gap-3">
-                         {/* Avatar */}
-                         <div className="w-10 h-10 rounded-full bg-[#222] flex-shrink-0 flex items-center justify-center font-bold text-sm text-gray-300">
-                           {post.is_anonymous ? <Ghost className="w-5 h-5" /> : getInitials(post.author_name)}
-                         </div>
-                         
-                         {/* Content */}
-                         <div className="flex-1 min-w-0">
-                           {/* Header Line */}
-                           <div className="flex items-center flex-wrap gap-1 text-[15px] leading-5">
-                             {post.is_anonymous ? (
-                               <span className="font-bold text-[#e7e9ea] truncate max-w-[150px]">
-                                 {post.author_name}
-                               </span>
-                             ) : (
-                               <UserProfileCard userId={post.user_id}>
-                                 <span className="font-bold text-[#e7e9ea] truncate max-w-[150px] hover:underline cursor-pointer">
-                                   {post.author_name}
-                                 </span>
-                               </UserProfileCard>
-                             )}
+                        <div className="w-10 h-10 rounded-full bg-[#222] flex-shrink-0 flex items-center justify-center font-bold text-sm text-gray-300">
+                          {post.is_anonymous ? <Ghost className="w-5 h-5" /> : getInitials(post.author_name)}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center flex-wrap gap-1 text-[15px] leading-5">
+                            <span className="font-bold text-[#e7e9ea] truncate max-w-[150px]">
+                              {post.author_name}
+                            </span>
                             {post.author_verified && <VerifiedBadge />}
                             <span className="text-[#71767b] truncate">
                               @{post.is_anonymous ? 'anonymous' : post.author_name.replace(/\s+/g, '').toLowerCase()}
@@ -337,7 +313,6 @@ const Index = () => {
                             <span className="text-[#71767b]">·</span>
                             <span className="text-[#71767b]">{timeAgo(post.created_at)}</span>
                             
-                            {/* Category Badge (Subtle) */}
                             {post.category !== 'general' && (
                               <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-[#2f3336] text-[#71767b]">
                                 {CATEGORIES.find(c => c.value === post.category)?.emoji} {post.category}
@@ -345,14 +320,11 @@ const Index = () => {
                             )}
                           </div>
 
-                          {/* Post Body */}
                           <div className="text-[#e7e9ea] text-[15px] whitespace-pre-wrap mt-1 mb-3 break-words">
                             {post.content}
                           </div>
                           
-                          {/* Footer Actions */}
-                          <div className="flex justify-between max-w-[300px] text-[#71767b] text-[13px]">
-                            {/* Comments */}
+                          <div className="flex justify-between max-w-[200px] text-[#71767b] text-[13px]">
                             <div className="flex items-center gap-2 group cursor-pointer hover:text-[#1d9bf0]">
                               <div className="p-2 rounded-full group-hover:bg-[#1d9bf0]/10 transition-colors">
                                 <MessageCircle className="w-[18px] h-[18px]" />
@@ -360,7 +332,6 @@ const Index = () => {
                               <span>{post.comments_count > 0 && post.comments_count}</span>
                             </div>
 
-                            {/* Likes */}
                             <div 
                               className={`flex items-center gap-2 group cursor-pointer ${post.liked_by_me ? 'text-[#f91880]' : 'hover:text-[#f91880]'}`}
                               onClick={(e) => { e.stopPropagation(); handleLike(post); }}
@@ -369,13 +340,6 @@ const Index = () => {
                                 <Heart className={`w-[18px] h-[18px] ${post.liked_by_me ? 'fill-current' : ''}`} />
                               </div>
                               <span>{post.likes_count > 0 && post.likes_count}</span>
-                            </div>
-                            
-                            {/* (Optional) Share - Visual only for now */}
-                            <div className="flex items-center gap-2 group cursor-pointer hover:text-[#1d9bf0]">
-                              <div className="p-2 rounded-full group-hover:bg-[#1d9bf0]/10 transition-colors">
-                                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] fill-current"><path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z"></path></svg>
-                              </div>
                             </div>
                           </div>
                         </div>
@@ -389,22 +353,20 @@ const Index = () => {
             <div className="min-h-screen">
               {tab === 'dating' && <Dating />}
               {tab === 'chat' && <Chat />}
-              {tab === 'settings' && <Settings />}
+              {tab === 'profile' && <Profile onBack={() => setTab('feed')} />}
             </div>
           )}
         </main>
 
         {/* --- RIGHT SIDEBAR --- */}
         <aside className="hidden lg:block w-[350px] pl-8 py-3 h-screen sticky top-0 overflow-y-auto">
-          {/* Search */}
-          <div className="mb-5">
-            <UserSearch />
+          <div className="bg-[#202327] rounded-full py-2.5 px-4 mb-5 flex items-center gap-3 focus-within:bg-black focus-within:border focus-within:border-[#1d9bf0] group border border-transparent">
+             <Search className="w-5 h-5 text-[#71767b] group-focus-within:text-[#1d9bf0]" />
+             <input type="text" placeholder="Search" className="bg-transparent border-none text-white outline-none w-full placeholder:text-[#71767b]" />
           </div>
 
-          {/* Filter / Trends Replacement */}
           <div className="bg-[#16181c] border border-[#2f3336] rounded-2xl mb-4 overflow-hidden">
              <div className="py-3 px-4 text-xl font-extrabold text-[#e7e9ea] mb-2">Explore Topics</div>
-             
              <div 
                 className={`py-3 px-4 hover:bg-[#eff3f4]/5 cursor-pointer transition-colors ${filterCategory === 'all' ? 'bg-[#eff3f4]/5 border-l-2 border-[#1d9bf0]' : ''}`}
                 onClick={() => setFilterCategory('all')}
@@ -412,7 +374,6 @@ const Index = () => {
                 <div className="text-[13px] text-[#71767b]">Everywhere</div>
                 <div className="font-bold text-[15px]">All Posts</div>
              </div>
-
              {CATEGORIES.map((cat) => (
                <div 
                   key={cat.value}
@@ -423,19 +384,8 @@ const Index = () => {
                   <div className="font-bold text-[15px] flex items-center gap-2">
                     {cat.emoji} {cat.label}s
                   </div>
-                  <div className="text-[13px] text-[#71767b] mt-0.5">
-                    {posts.filter(p => p.category === cat.value).length} posts
-                  </div>
                </div>
              ))}
-          </div>
-
-          {/* Leaderboard */}
-          <LeaderboardBox />
-
-          {/* Policy / Footer */}
-          <div className="px-4 pt-4 text-[13px] text-[#71767b] leading-5">
-             Terms of Service Privacy Policy Cookie Policy Accessibility Ads info More © 2026 CampusConnect
           </div>
         </aside>
 
@@ -444,7 +394,7 @@ const Index = () => {
           <button onClick={() => setTab('feed')} className={`${tab === 'feed' ? 'text-[#e7e9ea]' : 'text-[#71767b]'}`}><Globe /></button>
           <button onClick={() => setTab('dating')} className={`${tab === 'dating' ? 'text-[#e7e9ea]' : 'text-[#71767b]'}`}><Flame /></button>
           <button onClick={() => setTab('chat')} className={`${tab === 'chat' ? 'text-[#e7e9ea]' : 'text-[#71767b]'}`}><MessageCircle /></button>
-          <button onClick={() => setTab('settings')} className={`${tab === 'settings' ? 'text-[#e7e9ea]' : 'text-[#71767b]'}`}><Building2 /></button>
+          <button onClick={() => setTab('profile')} className={`${tab === 'profile' ? 'text-[#e7e9ea]' : 'text-[#71767b]'}`}><User /></button>
         </div>
 
       </div>
