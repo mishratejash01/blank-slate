@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { checkIsAdmin } from '@/lib/admin-api';
@@ -10,7 +10,9 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
-import { Eye, EyeOff, Shield, Globe, Building2, User, Mail } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Eye, EyeOff, Shield, Globe, Building2, User, Mail, Search, AtSign, Check, X as XIcon } from 'lucide-react';
+import { checkUsernameAvailability } from '@/lib/profile-api';
 
 const AdminLink = () => {
   const { user } = useAuth();
@@ -35,20 +37,27 @@ const AdminLink = () => {
 const Settings = () => {
   const { user, profile, signOut } = useAuth();
   const [viewabilityGlobal, setViewabilityGlobal] = useState(true);
+  const [searchableGlobal, setSearchableGlobal] = useState(true);
+  const [username, setUsername] = useState('');
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const usernameDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     if (!user) return;
     const load = async () => {
       const { data } = await supabase
         .from('user_profiles')
-        .select('viewability_global, full_name')
+        .select('viewability_global, searchable_global, username, full_name')
         .eq('user_id', user.id)
         .maybeSingle();
       if (data) {
         setViewabilityGlobal(data.viewability_global);
+        setSearchableGlobal(data.searchable_global ?? true);
+        setUsername(data.username || '');
         setUserProfile(data);
       }
       setLoading(false);
@@ -62,7 +71,11 @@ const Settings = () => {
     try {
       const { error } = await supabase
         .from('user_profiles')
-        .update({ viewability_global: viewabilityGlobal })
+        .update({ 
+          viewability_global: viewabilityGlobal,
+          searchable_global: searchableGlobal,
+          username: username.trim().toLowerCase() || null,
+        })
         .eq('user_id', user.id);
       if (error) throw error;
       toast({ title: 'Settings saved', description: 'Your privacy preferences have been updated.' });
@@ -91,7 +104,7 @@ const Settings = () => {
             <User className="h-4 w-4" /> Account
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
+        <CardContent className="space-y-3 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Mail className="h-3.5 w-3.5" />
             <span>{profile?.email}</span>
@@ -106,6 +119,44 @@ const Settings = () => {
               <span>{userProfile.full_name}</span>
             </div>
           )}
+          
+          {/* Username */}
+          <div className="space-y-1.5 pt-2 border-t border-border">
+            <Label className="flex items-center gap-1.5 text-sm font-medium">
+              <AtSign className="h-3.5 w-3.5" /> Username
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                value={username}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+                  setUsername(val);
+                  setUsernameAvailable(null);
+                  if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+                  if (val.trim() && user) {
+                    setCheckingUsername(true);
+                    usernameDebounceRef.current = setTimeout(async () => {
+                      const available = await checkUsernameAvailability(val.toLowerCase(), user.id);
+                      setUsernameAvailable(available);
+                      setCheckingUsername(false);
+                    }, 500);
+                  }
+                }}
+                placeholder="choose_a_username"
+                className="h-8 text-sm"
+              />
+              {username && !checkingUsername && usernameAvailable !== null && (
+                usernameAvailable ? (
+                  <Check className="h-4 w-4 text-green-500 shrink-0" />
+                ) : (
+                  <XIcon className="h-4 w-4 text-destructive shrink-0" />
+                )
+              )}
+            </div>
+            {username && !checkingUsername && usernameAvailable === false && (
+              <p className="text-xs text-destructive">Username is already taken</p>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -143,18 +194,40 @@ const Settings = () => {
 
           <Separator />
 
+          {/* Searchable Global Toggle */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="searchable" className="flex items-center gap-2 text-sm font-medium">
+                <Search className="h-4 w-4 text-primary" />
+                Searchable by Global Users
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {searchableGlobal
+                  ? 'Anyone can find you via username search.'
+                  : 'Only users from your organization can find you.'}
+              </p>
+            </div>
+            <Switch
+              id="searchable"
+              checked={searchableGlobal}
+              onCheckedChange={setSearchableGlobal}
+            />
+          </div>
+
+          <Separator />
+
           <div className="bg-muted/50 rounded-lg p-3 space-y-2">
             <div className="flex items-center gap-2 text-xs font-medium text-foreground">
               <Eye className="h-3.5 w-3.5" /> How it works
             </div>
             <ul className="text-xs text-muted-foreground space-y-1">
-              <li>• <strong>ON:</strong> Users from any organization can discover you while swiping in Global mode.</li>
-              <li>• <strong>OFF:</strong> Only users from <strong>{profile?.organization_domain}</strong> can see your profile.</li>
-              <li>• This setting only affects the dating feature, not the social feed.</li>
+              <li>• <strong>Visible to Global:</strong> Controls who sees you in the dating section.</li>
+              <li>• <strong>Searchable by Global:</strong> Controls who can find you via username search.</li>
+              <li>• <strong>OFF:</strong> Only users from <strong>{profile?.organization_domain}</strong> can find/see you.</li>
             </ul>
           </div>
 
-          <Button onClick={handleSave} disabled={saving} className="w-full">
+          <Button onClick={handleSave} disabled={saving || (username.trim() !== '' && usernameAvailable === false)} className="w-full">
             {saving ? 'Saving...' : 'Save Settings'}
           </Button>
         </CardContent>

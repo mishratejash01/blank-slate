@@ -16,6 +16,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import UserSearch from '@/components/search/UserSearch';
+import LeaderboardBox from '@/components/leaderboard/LeaderboardBox';
+import UserProfileCard from '@/components/profile/UserProfileCard';
+import { useActivityTracker } from '@/hooks/useActivityTracker';
 
 // --- Icons & UI Components ---
 
@@ -67,6 +71,9 @@ const Index = () => {
   
   // Navigation State
   const [tab, setTab] = useState<'feed' | 'dating' | 'chat' | 'settings'>('feed');
+  
+  // Activity Tracker
+  useActivityTracker(user?.id);
   
   // Feed State
   const [mode, setMode] = useState<'global' | 'org'>('global');
@@ -303,18 +310,26 @@ const Index = () => {
                   ) : (
                     displayedPosts.map((post) => (
                       <div key={post.id} className="p-4 border-b border-[#2f3336] flex hover:bg-white/[0.03] cursor-pointer transition-colors gap-3">
-                        {/* Avatar */}
-                        <div className="w-10 h-10 rounded-full bg-[#222] flex-shrink-0 flex items-center justify-center font-bold text-sm text-gray-300">
-                          {post.is_anonymous ? <Ghost className="w-5 h-5" /> : getInitials(post.author_name)}
-                        </div>
-                        
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          {/* Header Line */}
-                          <div className="flex items-center flex-wrap gap-1 text-[15px] leading-5">
-                            <span className="font-bold text-[#e7e9ea] truncate max-w-[150px]">
-                              {post.author_name}
-                            </span>
+                         {/* Avatar */}
+                         <div className="w-10 h-10 rounded-full bg-[#222] flex-shrink-0 flex items-center justify-center font-bold text-sm text-gray-300">
+                           {post.is_anonymous ? <Ghost className="w-5 h-5" /> : getInitials(post.author_name)}
+                         </div>
+                         
+                         {/* Content */}
+                         <div className="flex-1 min-w-0">
+                           {/* Header Line */}
+                           <div className="flex items-center flex-wrap gap-1 text-[15px] leading-5">
+                             {post.is_anonymous ? (
+                               <span className="font-bold text-[#e7e9ea] truncate max-w-[150px]">
+                                 {post.author_name}
+                               </span>
+                             ) : (
+                               <UserProfileCard userId={post.user_id}>
+                                 <span className="font-bold text-[#e7e9ea] truncate max-w-[150px] hover:underline cursor-pointer">
+                                   {post.author_name}
+                                 </span>
+                               </UserProfileCard>
+                             )}
                             {post.author_verified && <VerifiedBadge />}
                             <span className="text-[#71767b] truncate">
                               @{post.is_anonymous ? 'anonymous' : post.author_name.replace(/\s+/g, '').toLowerCase()}
@@ -382,9 +397,8 @@ const Index = () => {
         {/* --- RIGHT SIDEBAR --- */}
         <aside className="hidden lg:block w-[350px] pl-8 py-3 h-screen sticky top-0 overflow-y-auto">
           {/* Search */}
-          <div className="bg-[#202327] rounded-full py-2.5 px-4 mb-5 flex items-center gap-3 focus-within:bg-black focus-within:border focus-within:border-[#1d9bf0] group border border-transparent">
-             <Search className="w-5 h-5 text-[#71767b] group-focus-within:text-[#1d9bf0]" />
-             <input type="text" placeholder="Search" className="bg-transparent border-none text-white outline-none w-full placeholder:text-[#71767b]" />
+          <div className="mb-5">
+            <UserSearch />
           </div>
 
           {/* Filter / Trends Replacement */}
@@ -416,8 +430,11 @@ const Index = () => {
              ))}
           </div>
 
+          {/* Leaderboard */}
+          <LeaderboardBox />
+
           {/* Policy / Footer */}
-          <div className="px-4 text-[13px] text-[#71767b] leading-5">
+          <div className="px-4 pt-4 text-[13px] text-[#71767b] leading-5">
              Terms of Service Privacy Policy Cookie Policy Accessibility Ads info More © 2026 CampusConnect
           </div>
         </aside>

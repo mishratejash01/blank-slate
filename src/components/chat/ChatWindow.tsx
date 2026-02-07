@@ -16,6 +16,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import ChatDisclaimer from '@/components/chat/ChatDisclaimer';
 import ReportDialog from '@/components/chat/ReportDialog';
+import RatingStars from '@/components/chat/RatingStars';
+import { getMyRating, upsertRating } from '@/lib/profile-api';
 
 interface Props {
   matchId: string;
@@ -34,18 +36,20 @@ const ChatWindow = ({ matchId, otherUserId, otherName, otherBanned, onBack }: Pr
   const [showReport, setShowReport] = useState(false);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [myRating, setMyRating] = useState<number | null>(null);
 
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Check disclaimer
+  // Check disclaimer + load rating
   useEffect(() => {
     if (!user) return;
     hasAcknowledgedDisclaimer(user.id, matchId).then((ack) => {
       if (!ack) setShowDisclaimer(true);
     });
-  }, [user, matchId]);
+    getMyRating(user.id, otherUserId).then(setMyRating);
+  }, [user, matchId, otherUserId]);
 
   // Load messages
   useEffect(() => {
@@ -139,6 +143,21 @@ const ChatWindow = ({ matchId, otherUserId, otherName, otherBanned, onBack }: Pr
           {initials}
         </div>
         <span className="font-semibold text-sm text-foreground flex-1">{otherName}</span>
+        {/* Rating */}
+        <RatingStars
+          rating={myRating}
+          size={14}
+          onRate={async (rating) => {
+            if (!user) return;
+            try {
+              await upsertRating(user.id, otherUserId, rating, matchId);
+              setMyRating(rating);
+              toast({ title: 'Rating saved!' });
+            } catch (e: any) {
+              toast({ variant: 'destructive', title: 'Error', description: e.message });
+            }
+          }}
+        />
         {otherBanned && (
           <span className="text-[10px] text-destructive font-medium flex items-center gap-1">
             <ShieldOff className="h-3 w-3" /> Banned

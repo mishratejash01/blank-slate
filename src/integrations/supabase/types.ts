@@ -377,6 +377,30 @@ export type Database = {
           },
         ]
       }
+      user_activity: {
+        Row: {
+          created_at: string
+          id: string
+          minutes_spent: number
+          session_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          minutes_spent?: number
+          session_date?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          minutes_spent?: number
+          session_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_bans: {
         Row: {
           ban_duration_days: number | null
@@ -437,9 +461,11 @@ export type Database = {
           minor: string | null
           phone_number: string
           relationship_status: string
+          searchable_global: boolean
           start_year: number
           updated_at: string
           user_id: string
+          username: string | null
           viewability_global: boolean
         }
         Insert: {
@@ -460,9 +486,11 @@ export type Database = {
           minor?: string | null
           phone_number: string
           relationship_status: string
+          searchable_global?: boolean
           start_year: number
           updated_at?: string
           user_id: string
+          username?: string | null
           viewability_global?: boolean
         }
         Update: {
@@ -483,9 +511,11 @@ export type Database = {
           minor?: string | null
           phone_number?: string
           relationship_status?: string
+          searchable_global?: boolean
           start_year?: number
           updated_at?: string
           user_id?: string
+          username?: string | null
           viewability_global?: boolean
         }
         Relationships: [
@@ -497,6 +527,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_ratings: {
+        Row: {
+          created_at: string
+          id: string
+          match_id: string
+          rated_user_id: string
+          rater_id: string
+          rating: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          match_id: string
+          rated_user_id: string
+          rater_id: string
+          rating: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          match_id?: string
+          rated_user_id?: string
+          rater_id?: string
+          rating?: number
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

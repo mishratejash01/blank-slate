@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { MessageCircle, ShieldOff } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
+import UserProfileCard from '@/components/profile/UserProfileCard';
 
 const Chat = () => {
   const { user } = useAuth();
@@ -84,7 +85,9 @@ const Chat = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm text-foreground">{m.other_name}</span>
+                  <UserProfileCard userId={m.other_user_id}>
+                    <span className="font-semibold text-sm text-foreground hover:underline cursor-pointer">{m.other_name}</span>
+                  </UserProfileCard>
                   {m.is_banned && (
                     <Badge variant="destructive" className="h-5 px-1.5 text-[10px] gap-0.5">
                       <ShieldOff className="h-2.5 w-2.5" /> Banned
